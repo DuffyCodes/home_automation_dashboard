@@ -17,25 +17,26 @@ An API to ingest, store, and display quick stats using **Grafana**, **Prometheus
 - **Prometheus**: Metrics collection and monitoring.
 - **Grafana**: Visualization and dashboarding tool.
 
+## Requirements
+- Home Assistant installed and properly set up (Raspberry Pi, VM, etc)
+- MQTT configured and working (mosquitto or something similar for a broker)
+- Information on connecting to your Home Assistant instance
+
 ## Installation
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/quick-stats-api.git
-   cd quick-stats-api
+   git clone https://github.com/DuffyCodes/home_automation_dashboard.git
+   cd home_automation_dashboard
    ```
 
 2. Build the Go application:
-   ```bash
-   go build -o quick-stats-api
-   ```
+   Will fill out when i finalize how it will work
 
 3. Start MongoDB, Prometheus, and Grafana using your preferred method (e.g., Docker or local installation).
 
 4. Run the API:
-   ```bash
-   ./quick-stats-api
-   ```
+   Will fill out when i finalize how it will work
 
 5. Access the API and dashboards:
    - API: `http://localhost:8080`
