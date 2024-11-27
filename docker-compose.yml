@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mqtt-ingestor:
+    build:
+      context: ./mqtt-ingestor
+      dockerfile: Dockerfile
+    container_name: mqtt-ingestor
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  # mqtt-api:
+  #   build:
+  #     context: ./mqtt-api
+  #     dockerfile: Dockerfile
+  #   container_name: mqtt-api
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "${API_PORT}:8080"
+  #   depends_on:
+  #     - mongo
+  #   restart: unless-stopped
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+    driver: local

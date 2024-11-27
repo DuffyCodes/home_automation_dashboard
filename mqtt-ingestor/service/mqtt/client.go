@@ -1,4 +1,4 @@
-package main
+package mqtt
 
 import (
 	"fmt"
@@ -7,19 +7,14 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-// MessageHandler processes incoming MQTT messages.
-var MessageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	fmt.Printf("Topic: %s, Payload: %s\n", msg.Topic(), msg.Payload())
-	// Process the message or store it as needed
-}
-
-func connectMQTT(broker, clientID string, username string, password string) mqtt.Client {
+// ConnectClient connects to the MQTT broker and returns the client instance.
+func ConnectClient(broker, clientID, username, password string, messageHandler mqtt.MessageHandler) mqtt.Client {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
 	opts.SetClientID(clientID)
 	opts.SetUsername(username)
 	opts.SetPassword(password)
-	opts.SetDefaultPublishHandler(MessageHandler)
+	opts.SetDefaultPublishHandler(messageHandler)
 
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
@@ -29,7 +24,8 @@ func connectMQTT(broker, clientID string, username string, password string) mqtt
 	return client
 }
 
-func subscribeToTopics(client mqtt.Client, topics []string) {
+// SubscribeTopics subscribes the MQTT client to the specified topics.
+func SubscribeTopics(client mqtt.Client, topics []string) {
 	for _, topic := range topics {
 		if token := client.Subscribe(topic, 1, nil); token.Wait() && token.Error() != nil {
 			log.Fatalf("Failed to subscribe to topic %s: %v", topic, token.Error())
