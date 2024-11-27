@@ -1,24 +1,12 @@
 package main
 
 import (
-	"context"
-	"log"
 	"os"
 
 	"home_automation_dashboard/mqtt-ingestor/service/db"
 	"home_automation_dashboard/mqtt-ingestor/service/mqtt"
-
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func connectMongoDB(uri string) *mongo.Client {
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
-	if err != nil {
-		log.Fatalf("Failed to connect to MongoDB: %v", err)
-	}
-	return client
-}
 func main() {
 	// MongoDB configuration
 	mongoURI := os.Getenv("MONGO_URI")
@@ -37,7 +25,7 @@ func main() {
 	defer mongoDB.Disconnect()
 
 	// Initialize MQTT message handler with MongoDB integration
-	messageHandler := mqtt.MessageHandler(*mongoDB.Client, databaseName, collectionName)
+	messageHandler := mqtt.MessageHandler(mongoDB.Client, databaseName, collectionName)
 
 	// Connect to MQTT broker
 	mqttClient := mqtt.ConnectClient(mqttBroker, clientID, mqttUsername, mqttPassword, messageHandler)
