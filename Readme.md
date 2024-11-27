@@ -22,7 +22,7 @@ An API to ingest, store, and display quick stats using **Grafana**, **Prometheus
 1. Clone the repository:
    ```bash
    git clone https://github.com/yourusername/quick-stats-api.git
-   cd quick-stats-api
+   cd home_automation_dashboard
    ```
 
 2. Build the Go application:
