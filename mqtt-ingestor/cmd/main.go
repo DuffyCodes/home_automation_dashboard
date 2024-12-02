@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"home_automation_dashboard/mqtt-ingestor/service/db"
 	"home_automation_dashboard/mqtt-ingestor/service/mqtt"
+	"home_automation_dashboard/shared/db"
 )
 
 func main() {

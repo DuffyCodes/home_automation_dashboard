@@ -3,8 +3,8 @@ version: '3.8'
 services:
   mqtt-ingestor:
     build:
-      context: ./mqtt-ingestor
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: mqtt-ingestor/Dockerfile
     container_name: mqtt-ingestor
     env_file:
       - .env
@@ -12,18 +12,18 @@ services:
       - mongo
     restart: unless-stopped
 
-  # mqtt-api:
-  #   build:
-  #     context: ./mqtt-api
-  #     dockerfile: Dockerfile
-  #   container_name: mqtt-api
-  #   env_file:
-  #     - .env
-  #   ports:
-  #     - "${API_PORT}:8080"
-  #   depends_on:
-  #     - mongo
-  #   restart: unless-stopped
+  mqtt-api:
+    build:
+      context: .
+      dockerfile: mqtt-api/Dockerfile
+    container_name: mqtt-api
+    env_file:
+      - .env
+    ports:
+      - "${API_PORT}:8080"
+    depends_on:
+      - mongo
+    restart: unless-stopped
 
   mongo:
     image: mongo:latest
