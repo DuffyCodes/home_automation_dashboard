@@ -38,6 +38,7 @@ func MessageHandler(client *mongo.Client, databaseName, collectionName string) f
 			Tags: map[string]interface{}{
 				"room":        extractRoomFromTopic(msg.Topic()),
 				"sensor_type": extractSensorTypeFromTopic(msg.Topic()),
+				"state":       payload,
 			},
 		}
 

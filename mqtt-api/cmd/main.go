@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"home_automation_dashboard/mqtt-api/services/api"
 	"home_automation_dashboard/shared/db"
@@ -20,13 +21,29 @@ func main() {
 	// MongoDB configuration
 	mongoURI := os.Getenv("MONGO_URI")
 	databaseName := os.Getenv("MONGO_DB")
-	log.Printf("MONGO_DATABASE: %s", databaseName)
 
 	mongoDb := db.ConnectMongoDB(mongoURI, databaseName)
 	defer mongoDb.Disconnect()
 
+	handler := api.NewHandler(mongoDb.Client, databaseName)
+
+	// Periodic updates for switch metrics
+	go func() {
+		ticker := time.NewTicker(30 * time.Second) // Update every 30 seconds
+		defer ticker.Stop()
+
+		for range ticker.C {
+			handler.UpdateSwitchMetrics()
+			handler.UpdateTotalSwitchOnDuration()
+		}
+	}()
+
 	// Initialize Gin router
 	router := gin.Default()
+
+	// metrics := prometheus.NewRegistry()
+	// prometheus.MustRegister(prometheus.NewBuildInfoCollector())
+	// router.GET("/metrics", gin.WrapH(promhttp.HandlerFor(metrics, promhttp.HandlerOpts{})))
 
 	// Set up routes
 	api.SetupRoutes(router, mongoDb.Client, databaseName)
