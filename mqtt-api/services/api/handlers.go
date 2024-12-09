@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -50,6 +51,13 @@ var (
 		},
 		[]string{"topic"},
 	)
+	appUsage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "app_usage_seconds_total",
+			Help: "Total time spent on each app.",
+		},
+		[]string{"topic", "app"},
+	)
 )
 
 func init() {
@@ -57,6 +65,7 @@ func init() {
 	prometheus.MustRegister(switchTotalOnDuration)
 	prometheus.MustRegister(kitchenTemperature)
 	prometheus.MustRegister(temperatureHistogram)
+	prometheus.MustRegister(appUsage)
 }
 
 // NewHandler initializes a new Handler instance
@@ -216,11 +225,11 @@ func (h *Handler) UpdateSwitchMetrics() {
 
 			// Update Prometheus metric
 			switchOnDuration.WithLabelValues(result.Topic).Set(onDuration)
-			log.Printf("Topic: %s, Running Duration: %.2f seconds", result.Topic, onDuration)
+			// log.Printf("Topic: %s, Running Duration: %.2f seconds", result.Topic, onDuration)
 		} else {
 			// If the switch is OFF, set the duration to 0
 			switchOnDuration.WithLabelValues(result.Topic).Set(0)
-			log.Printf("Topic: %s, Currently OFF", result.Topic)
+			// log.Printf("Topic: %s, Currently OFF", result.Topic)
 		}
 	}
 
@@ -285,7 +294,7 @@ func (h *Handler) UpdateTotalSwitchOnDuration() {
 
 		// Update Prometheus metric for total ON duration
 		switchTotalOnDuration.WithLabelValues(result.Topic).Set(totalOnDuration)
-		log.Printf("Topic: %s, Total ON Duration: %.2f seconds", result.Topic, totalOnDuration)
+		// log.Printf("Topic: %s, Total ON Duration: %.2f seconds", result.Topic, totalOnDuration)
 	}
 
 	if err := cursor.Err(); err != nil {
@@ -302,7 +311,6 @@ func calculateTotalOnDuration(events []struct {
 	inOnState := false
 
 	for _, event := range events {
-		log.Printf("Value: %s, Time: %s", event.Value, event.Timestamp)
 		if event.Value == "on" {
 			if !inOnState {
 				lastOnTime = &event.Timestamp
@@ -313,7 +321,6 @@ func calculateTotalOnDuration(events []struct {
 			if inOnState && lastOnTime != nil {
 				duration := event.Timestamp.Sub(*lastOnTime).Seconds()
 				totalDuration += duration
-				log.Printf("Adding duration: %.2f seconds", duration)
 				lastOnTime = nil
 				inOnState = false
 			}
@@ -325,9 +332,123 @@ func calculateTotalOnDuration(events []struct {
 		currentTime := time.Now()
 		duration := currentTime.Sub(*lastOnTime).Seconds()
 		totalDuration += duration
-		log.Printf("Adding duration for unpaired 'on': %.2f seconds", duration)
 	}
 
-	log.Printf("Total ON Duration: %.2f seconds", totalDuration)
+	// log.Printf("Total ON Duration: %.2f seconds", totalDuration)
 	return totalDuration
+}
+
+func (h *Handler) RokuAppDetails() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	col := h.client.Database(h.database).Collection(h.collection)
+
+	// Aggregation pipeline to calculate total ON duration
+	pipeline := bson.A{
+		bson.D{{Key: "$match", Value: bson.D{
+			{Key: "topic", Value: bson.D{{Key: "$in", Value: []string{
+				"home/living_room_roku_active_app",
+				"home/office_roku_active_app",
+				"home/basement_roku_active_app",
+			}}}},
+		}}},
+		bson.D{{Key: "$sort", Value: bson.D{
+			{Key: "topic", Value: 1},
+			{Key: "timestamp", Value: 1},
+		}}},
+		bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$topic"},
+			{Key: "events", Value: bson.D{{Key: "$push", Value: bson.D{
+				{Key: "value", Value: "$value"},
+				{Key: "timestamp", Value: "$timestamp"},
+			}}}},
+		}}},
+	}
+
+	cursor, err := col.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		log.Printf("Failed to aggregate roku metrics: %v", err)
+		return
+	}
+	defer cursor.Close(ctx)
+
+	var results []bson.M
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		panic(err)
+	}
+
+	processAndExportMetrics(results)
+
+	// Print results for debugging
+	// for _, result := range results {
+	// 	log.Printf("Topic: %v\n", result["_id"])
+	// 	events := result["events"].(bson.A)
+	// 	for _, event := range events {
+	// 		eventDoc := event.(bson.M)
+	// 		log.Printf("  Value: %v, Timestamp: %v\n", eventDoc["value"], eventDoc["timestamp"])
+	// 	}
+	// }
+}
+
+func processAndExportMetrics(results []bson.M) {
+	excludedApps := map[string]bool{
+		"Roku":              true,
+		"Home":              true,
+		"Roku Dynamic Menu": true,
+		"unknown":           true,
+	}
+
+	for _, result := range results {
+		topic := result["_id"].(string)
+		events := result["events"].(bson.A)
+
+		// Map to store total durations for each app
+		totalDurations := make(map[string]float64)
+		var activeApp string     // Tracks the currently active app
+		var startTime *time.Time // Tracks the start time of the current app
+
+		for _, event := range events {
+			currentEvent := event.(bson.M)
+			appName := currentEvent["value"].(string)
+			timestamp := currentEvent["timestamp"].(primitive.DateTime).Time()
+
+			// If the current app is excluded
+			if excludedApps[appName] {
+				if activeApp != "" && startTime != nil {
+					duration := timestamp.Sub(*startTime).Minutes()
+					totalDurations[activeApp] += duration
+					startTime = nil
+					activeApp = "" // Clear the active app
+				}
+				continue
+			}
+
+			if activeApp != "" && appName != activeApp {
+				if startTime != nil {
+					duration := timestamp.Sub(*startTime).Minutes()
+					totalDurations[activeApp] += duration
+				}
+				activeApp = appName
+				startTime = &timestamp
+				continue
+			}
+
+			if activeApp == "" {
+				activeApp = appName
+				startTime = &timestamp
+			}
+		}
+
+		if activeApp != "" && startTime != nil {
+			currentTime := time.Now()
+			duration := currentTime.Sub(*startTime).Minutes()
+			totalDurations[activeApp] += duration
+		}
+
+		for app, duration := range totalDurations {
+			appUsage.WithLabelValues(topic, app).Set(duration)
+			// log.Printf("App: %s, Duration: %.2f minutes", app, duration)
+		}
+	}
 }

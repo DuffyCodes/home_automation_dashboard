@@ -1,0 +1,16 @@
+// {
+//     "version": "0.2.0",
+//     "configurations": [
+//         {
+//             "name": "Debug mqtt-api",
+//             "type": "go",
+//             "request": "attach",
+//             "mode": "remote",
+//             "remotePath": "/root/mqtt-api-debug", // Path inside the container where the app runs
+//             "port": 40000,
+//             "host": "127.0.0.1",
+//             "cwd": "${workspaceFolder}/mqtt-api", // Path to your codebase on the host machine
+//             "apiVersion": 2
+//         }
+//     ]
+// }

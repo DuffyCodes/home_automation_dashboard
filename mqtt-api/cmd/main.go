@@ -9,16 +9,9 @@ import (
 	"home_automation_dashboard/shared/db"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using defaults")
-	}
-
-	// MongoDB configuration
 	mongoURI := os.Getenv("MONGO_URI")
 	databaseName := os.Getenv("MONGO_DB")
 
@@ -27,23 +20,19 @@ func main() {
 
 	handler := api.NewHandler(mongoDb.Client, databaseName)
 
-	// Periodic updates for switch metrics
 	go func() {
-		ticker := time.NewTicker(30 * time.Second) // Update every 30 seconds
+		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 
 		for range ticker.C {
 			handler.UpdateSwitchMetrics()
 			handler.UpdateTotalSwitchOnDuration()
+			handler.RokuAppDetails()
 		}
 	}()
 
 	// Initialize Gin router
 	router := gin.Default()
-
-	// metrics := prometheus.NewRegistry()
-	// prometheus.MustRegister(prometheus.NewBuildInfoCollector())
-	// router.GET("/metrics", gin.WrapH(promhttp.HandlerFor(metrics, promhttp.HandlerOpts{})))
 
 	// Set up routes
 	api.SetupRoutes(router, mongoDb.Client, databaseName)

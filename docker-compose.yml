@@ -18,10 +18,13 @@ services:
     env_file:
       - .env
     ports:
-      - "${API_PORT}:8080"
+      - "${API_PORT}:8080" 
+      # - "40000:40000"        # Expose Delve debugger port
     depends_on:
       - mongo
     restart: unless-stopped
+    # command: >
+    #   dlv --listen=:40000 --headless=true --api-version=2 --accept-multiclient exec ./mqtt-api
 
   prometheus:
     image: prom/prometheus:latest
@@ -41,7 +44,6 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
     restart: unless-stopped
-
 
   mongo:
     image: mongo:latest
